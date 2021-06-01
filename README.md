@@ -1,5 +1,5 @@
 <h1 align="center">
-DILIGENT-KIO: A Proprioceptive Base Estimator for Humanoid Robots using Extended Kalman Filtering on Matrix Lie Groups
+[DILIGENT-KIO: A Proprioceptive Base Estimator for Humanoid Robots using Extended Kalman Filtering on Matrix Lie Groups](https://www.youtube.com/watch?v=CaEZvbR9ZcA)
 </h1>
 
 <div align="center">
