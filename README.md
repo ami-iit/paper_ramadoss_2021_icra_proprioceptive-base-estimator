@@ -13,7 +13,7 @@ Prashanth Ramadoss, Giulio Romualdi, Stefano Dafarra, Francisco Javier Andrade C
 </div>
 
 <div align="center">
-<a href="#installation"><b>Installation</b></a> |
+<a href="#usage"><b>Usage</b></a> |
 <a href="https://arxiv.org/abs/2105.14914"><b>Paper</b></a>
 </div>
 
