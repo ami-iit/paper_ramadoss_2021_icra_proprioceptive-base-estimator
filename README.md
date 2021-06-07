@@ -14,13 +14,13 @@ Prashanth Ramadoss, Giulio Romualdi, Stefano Dafarra, Francisco Javier Andrade C
 
 <div align="center">
 <a href="#usage"><b>Usage</b></a> |
-<a href="https://arxiv.org/abs/2105.14914"><b>Paper</b></a>
+<a href="https://arxiv.org/abs/2105.14914"><b>Paper</b></a> |
+<a href="https://www.youtube.com/watch?v=CaEZvbR9ZcA"><b>Video Presentation</b></a>
 </div>
-
 
 ### Usage
 
-_Our software implementation is in the process of being released._
+Please see [`matlab/README.md`](./matlab/README.md) for an overview of the software implementation.
 
 ### Citing this work
 
