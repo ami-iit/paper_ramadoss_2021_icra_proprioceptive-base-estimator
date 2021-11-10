@@ -9,13 +9,14 @@ clear
 close all
 
 %% flags
-enable_ocekf = true;
-enable_invekf = true;
-enable_swa = true;
+enable_ocekf = false;
+enable_invekf = false;
+enable_swa = false;
 enable_diligent = true;
+enable_diligent_rie = true;
 
 %% load dataset
-experiment_name = 'walking'; % walking | com-sinusoid
+experiment_name = 'com-sinusoid'; % walking | com-sinusoid
 experiment.mat_file = ['./resources/' experiment_name '.mat'];
 
 load(experiment.mat_file);
@@ -195,6 +196,13 @@ if enable_diligent
     outMap(diligentmat).resizeBuffers(nrIters, Nl, Nr);
 end
 
+
+if enable_diligent_rie
+    diligentriemat = 'diligentriemat';
+    outMap(diligentriemat) = EstCollector(diligentriemat);
+    outMap(diligentriemat).resizeBuffers(nrIters, Nl, Nr);
+end
+
 %% Initialize filters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % ocekf
@@ -237,6 +245,15 @@ if enable_diligent
     diligentm = Estimation.DLGEKF.Filter();
     diligentm.setup(priors, sensors_dev, modelComp, options);
     diligentm.initialize(initial_dlgekf_state);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% diligent_rie
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if enable_diligent_rie
+    diligentriem = Estimation.DLGEKF_RIE.Filter();
+    diligentriem.setup(priors, sensors_dev, modelComp, options);
+    diligentriem.initialize(initial_dlgekf_state);
 end
 
 %% init buffers
@@ -333,6 +350,25 @@ for iter = startIter : endIter
         outMap(diligentmat).updateFootPosition('right',iter, 1, pdil_RF);
         outMap(diligentmat).updateBias(iter, bias_acc_dil, bias_acc_dil);
     end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % diligentriemat
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    if enable_diligent_rie
+        [Xdilrie, Pkrie, diligentriemBase, ~] = diligentriem.advance(t, gyro', acc', s, contacts);
+        w_H_B_diligentriem = Utils.idynPose(Utils.quat2rot(diligentriemBase.q), diligentriemBase.I_p);
+        outMap(diligentriemat).updateBasePose(iter, w_H_B_diligentriem.getRotation().asRPY().toMatlab(), ...
+            diligentriemBase.I_p, diligentriemBase.I_pdot, diligentriemBase.I_omega);
+        [~, ~, ~, ...
+            Rdilrie_LF, pdilrie_LF, ...
+            Rdilrie_RF, pdilrie_RF, ...
+            bias_acc_dilrie, bias_gyro_dilrie] = Estimation.DLGEKF_RIE.State.extract(Xdilrie);
+        outMap(diligentriemat).updateFootRotation('left',iter, Utils.rot2rpy(Rdilrie_LF));
+        outMap(diligentriemat).updateFootRotation('right',iter, Utils.rot2rpy(Rdilrie_RF));
+        outMap(diligentriemat).updateFootPosition('left',iter, 1, pdilrie_LF);
+        outMap(diligentriemat).updateFootPosition('right',iter, 1, pdilrie_RF);
+        outMap(diligentriemat).updateBias(iter, bias_acc_dilrie, bias_acc_dilrie);
+    end
    
 %     pause
     if (mod(iter, 50) == 0)
@@ -378,6 +414,11 @@ for idx = 1:2
         legend_line = [legend_line diligentmatline];
         legendtex = [legendtex 'DILIGENT-KIO'];
     end
+    if enable_diligent_rie
+        diligentriematline = plot(estBaseTime(startIter:endIter), rad2deg(outMap(diligentriemat).baseRPY(startIter:endIter, idx)),  'b', 'LineWidth', 2);    
+        legend_line = [legend_line diligentriematline];
+        legendtex = [legendtex 'DILIGENT-RIE-KIO'];
+    end
     xlabel('Time(s)', 'FontSize', 18)
     ylabel(title1{idx}, 'FontSize', 24) 
     legend(legend_line, legendtex,'FontSize', 24)    
@@ -416,6 +457,11 @@ for idx = 1:3
         diligentmatline = plot(estBaseTime(startIter:endIter), outMap(diligentmat).basePos(startIter:endIter, idx),   'g', 'LineWidth', 2);
         legend_line = [legend_line diligentmatline];
         legendtex = [legendtex 'DILIGENT-KIO'];
+    end
+    if enable_diligent_rie
+        diligentriematline = plot(estBaseTime(startIter:endIter), outMap(diligentriemat).basePos(startIter:endIter, idx),   'b', 'LineWidth', 2);
+        legend_line = [legend_line diligentriematline];
+        legendtex = [legendtex 'DILIGENT-RIE-KIO'];
     end
     
     xlabel('Time(s)', 'FontSize', 18)
@@ -464,6 +510,11 @@ for idx = 1:3
         legend_line = [legend_line diligentmatline];
         legendtex = [legendtex 'DILIGENT-KIO'];
     end
+    if enable_diligent_rie
+        diligentriematline = plot(estBaseTime(startIter:endIter), outMap(diligentriemat).baseLinVel(startIter:endIter, idx),   'b', 'LineWidth', 2);
+        legend_line = [legend_line diligentriematline];
+        legendtex = [legendtex 'DILIGENT-RIE-KIO'];
+    end
     
     xlabel('Time(s)', 'FontSize', 18)
     ylabel(title2{idx}, 'FontSize', 24)    
@@ -480,20 +531,33 @@ drawnow;
 RPEgap = 100;
 align_yaw = false;
 % [rotError, posError, velError, ATErot, ATEpos, ATEvel, RPErot, RPEpos]
+if enable_ocekf
 [errors.ocekfL.rotError, errors.ocekfL.posError, errors.ocekfL.velError, ...
     errors.ocekfL.ATErot, errors.ocekfL.ATEpos, errors.ocekfL.ATEvel,  ...
     errors.ocekfL.RPErot, errors.ocekfL.RPEpos] = Estimation.Utils.getLeftInvariantErrorMetrics(linkBasePos, linkBaseRot, linkBaseLinVel, ...
                                                outMap(ocekfmat).basePos, outMap(ocekfmat).baseRPY, outMap(ocekfmat).baseLinVel, RPEgap, align_yaw);
+end
+if enable_invekf
 [errors.invekfL.rotError, errors.invekfL.posError, errors.invekfL.velError, ...
     errors.invekfL.ATErot, errors.invekfL.ATEpos, errors.invekfL.ATEvel, ...
     errors.invekfL.RPErot, errors.invekfL.RPEpos] = Estimation.Utils.getLeftInvariantErrorMetrics(linkBasePos, linkBaseRot, linkBaseLinVel, ...
                                                outMap(invekfmat).basePos, outMap(invekfmat).baseRPY, outMap(invekfmat).baseLinVel, RPEgap, align_yaw);
+end
+if enable_swa
 [errors.swaL.rotError, errors.swaL.posError, errors.swaL.velError, ... 
     errors.swaL.ATErot, errors.swaL.ATEpos, errors.swaL.ATEvel, ... 
     errors.swaL.RPErot, errors.swaL.RPEpos] = Estimation.Utils.getLeftInvariantErrorMetrics(linkBasePos, linkBaseRot, linkBaseLinVel, ...
                                                outMap(swamat).basePos, outMap(swamat).baseRPY, outMap(swamat).baseLinVel, RPEgap, align_yaw);                                           
+end
+if enable_diligent      
 [errors.diligentL.rotError, errors.diligentL.posError, errors.diligentL.velError, ...
     errors.diligentL.ATErot, errors.diligentL.ATEpos, errors.diligentL.ATEvel, ... 
     errors.diligentL.RPErot, errors.diligentL.RPEpos] = Estimation.Utils.getLeftInvariantErrorMetrics(linkBasePos, linkBaseRot, linkBaseLinVel, ...
                                                outMap(diligentmat).basePos, outMap(diligentmat).baseRPY, outMap(diligentmat).baseLinVel, RPEgap, align_yaw);
-
+end
+if enable_diligent_rie
+[errors.diligentrieR.rotError, errors.diligentrieR.posError, errors.diligentrieR.velError, ...
+    errors.diligentrieR.ATErot, errors.diligentrieR.ATEpos, errors.diligentrieR.ATEvel, ... 
+    errors.diligentrieR.RPErot, errors.diligentrieR.RPEpos] = Estimation.Utils.getRightInvariantErrorMetrics(linkBasePos, linkBaseRot, linkBaseLinVel, ...
+                                               outMap(diligentriemat).basePos, outMap(diligentriemat).baseRPY, outMap(diligentriemat).baseLinVel, RPEgap, align_yaw);
+end
