@@ -25,7 +25,7 @@ Please see [`matlab/README.md`](./matlab/README.md) for an overview of the softw
 
 ### Citing this work
 
-If you find the work useful, please consider citing our preprint, while our publication is in process:
+If you find the work useful, please consider citing our publication:
 
 ```
 @INPROCEEDINGS{9561248,
